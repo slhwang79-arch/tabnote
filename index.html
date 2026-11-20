@@ -49,14 +49,20 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:6px;
 .grow{flex:1}
 .hint{font-size:.82rem;color:var(--muted)}
 .sheet{background:var(--surface);border-radius:10px;padding:18px 14px 8px;display:flex;flex-wrap:wrap;row-gap:22px;overflow-x:auto}
-.legend{display:grid;grid-template-rows:repeat(6,var(--rh));margin-right:6px;font-family:var(--f-num);font-size:.75rem;color:var(--muted);padding-top:32px}
+.legend{display:grid;grid-template-rows:repeat(6,var(--rh));margin-right:6px;font-family:var(--f-num);font-size:.75rem;color:var(--muted);padding-top:46px}
 .legend span{display:flex;align-items:center;justify-content:flex-end}
 .m{display:flex;flex-direction:column}
 .mn{font-family:var(--f-num);font-size:.7rem;color:var(--muted);height:18px;padding-left:4px}
 .g{position:relative;display:grid;grid-template-columns:repeat(8,var(--cw));grid-auto-rows:var(--rh)}
 .c.b0{box-shadow:inset 1px 0 0 var(--soft)}
-.c.t3{background-image:linear-gradient(to bottom,transparent calc(50% - .5px),var(--line) calc(50% - .5px),var(--line) calc(50% + .5px),transparent calc(50% + .5px)),repeating-linear-gradient(to bottom,var(--soft) 0 2px,transparent 2px 4px);background-size:100% 100%,1px 100%;background-repeat:no-repeat}
+.c.t3{background-image:linear-gradient(to bottom,transparent calc(50% - .5px),var(--line) calc(50% - .5px),var(--line) calc(50% + .5px),transparent calc(50% + .5px)),repeating-linear-gradient(to bottom,var(--line) 0 2px,transparent 2px 5px);background-size:100% 100%,1px 100%;background-repeat:no-repeat}
 .mk{display:grid;height:14px}
+.tp{display:grid;height:14px}
+.tp span{position:relative;cursor:pointer;border-radius:3px}
+.tp span:hover{background:var(--soft)}
+.tp span.on::before{content:"";position:absolute;left:5px;right:5px;top:6px;bottom:0;border:1.5px solid var(--muted);border-bottom:0;border-radius:2px 2px 0 0}
+.tp span.on::after{content:"3";position:absolute;left:50%;top:0;transform:translateX(-50%);padding:0 3px;background:var(--surface);font:700 10px/12px var(--f-num);color:var(--ink)}
+.tp span.on:hover::after{background:var(--soft)}
 .mk span{font:700 9px/14px var(--f-num);color:var(--accent);text-align:center;letter-spacing:.02em;border-bottom:1.5px dashed transparent}
 .mk span.pm{border-bottom-color:var(--accent)}
 .c b.xm{color:var(--accent)}
@@ -131,7 +137,7 @@ textarea{width:100%;min-height:150px;font-family:var(--f-num);font-size:.8rem;ba
     <label>빠르기 <input type="range" id="bpm" min="40" max="240" step="1"> <input type="number" class="bpm-in" id="bpmV" min="30" max="300" step="1" inputmode="numeric" aria-label="BPM 직접 입력"> BPM</label>
     <label>카포 <select id="capo"></select></label>
     <label>박자 <select id="beats"><option value="2">2/4</option><option value="3">3/4</option><option value="4">4/4</option></select></label>
-    <label>한 칸 <select id="res"><option value="2">8분음표</option><option value="4">16분음표</option><option value="6">16분음표 셋잇단</option><option value="8">32분음표</option></select></label>
+    <label>한 칸 <select id="res"><option value="2">8분음표</option><option value="4">16분음표</option><option value="8">32분음표</option></select></label>
     <label>음색 <select id="tone"><option value="steel">통기타 (스틸 줄)</option><option value="nylon">클래식 기타 (나일론 줄)</option><option value="synth">합성음 (이전 소리)</option></select></label>
     <label><input type="checkbox" id="loop"> 반복 재생</label>
     <label><input type="checkbox" id="adv"> 입력 후 다음 칸으로</label>
@@ -244,7 +250,42 @@ let PER=8;
 const GTR_SAMPLES=window.GTR_SAMPLES||{};
 const LAME_SRC='lame.min.js';
 const EMPTY=()=>[null,null,null,null,null,null];
-function norm(o){o.pm=Array.isArray(o.pm)?o.pm:[];o.res=+o.res||2;o.beats=+o.beats||4;PER=o.res*o.beats;if(!o.cols.length)o.cols.push(EMPTY());while(o.cols.length%PER)o.cols.push(EMPTY());return o}
+function norm(o){o.pm=Array.isArray(o.pm)?o.pm:[];o.res=+o.res||2;o.beats=+o.beats||4;
+  o.trip=Array.isArray(o.trip)?o.trip.map(Number).filter(b=>b>=0&&Number.isInteger(b)):[];
+  if(o.res===6){o.res=4;o.trip=Array.from({length:Math.ceil(o.cols.length/6)},(_,i)=>i)} // 예전 '16분음표 셋잇단' 전체 설정 → 모든 박 셋잇단
+  PER=o.res*o.beats; if(!o.cols.length)o.cols.push(EMPTY());
+  const tr=new Set(o.trip), n=b=>tr.has(b)?o.res*1.5:o.res; let c=0,b=0;
+  while(c<o.cols.length){c+=n(b);b++} while(b%o.beats){c+=n(b);b++}
+  while(o.cols.length<c)o.cols.push(EMPTY()); o.trip=o.trip.filter(x=>x<b).sort((x,y)=>x-y); return o}
+/* 박마다 칸 수가 다를 수 있음: 보통 박 = res칸, 셋잇단 박 = res×1.5칸 (8분→8분 셋잇단 3칸, 16분→16분 셋잇단 6칸, 32분→12칸) */
+let L=null;
+function relayout(){
+  const r=st.res, tr=new Set(st.trip), cb=[],cp=[],cn=[],ct=[],bs=[]; let c=0,b=0;
+  while(c<st.cols.length){const k=tr.has(b)?r*1.5:r; bs.push(c); for(let j=0;j<k;j++){cb.push(b);cp.push(j);cn.push(k);ct.push(b+j/k)} c+=k; b++}
+  bs.push(c); const ms=[]; for(let m=0;m*st.beats<b;m++) ms.push(bs[m*st.beats]); ms.push(c);
+  L={cb,cp,cn,ct,bs,ms,nb:b,nm:ms.length-1,tr}; return L}
+const measOf=c=>Math.floor(L.cb[c]/st.beats);
+const cellPos=c=>{const m=measOf(c);return `${m+1}마디 ${c-L.ms[m]+1}칸`};
+function colAtBeat(x){let lo=0,hi=L.ct.length-1;if(x<=0)return 0;while(lo<hi){const mid=(lo+hi+1)>>1;if(L.ct[mid]<=x+1e-9)lo=mid;else hi=mid-1}return lo}
+function pushMeasure(){for(let i=0;i<st.res*st.beats;i++)st.cols.push(EMPTY())}
+/* 박 구성을 바꾸면서 음을 같은 박자 위치로 옮김. 겹쳐서 빠지는 음 개수를 돌려줌 (dry면 계산만) */
+function restructure(res2,trip2,dry){
+  relayout(); const t2=new Set(trip2), pmSet=new Set(st.pm), cols=[], pm=[]; let lost=0, selC=sel.c;
+  for(let b=0;b<L.nb;b++){const a=L.bs[b], n0=L.bs[b+1]-a, n1=t2.has(b)?res2*1.5:res2, base=cols.length;
+    for(let k=0;k<n1;k++) cols.push(EMPTY());
+    for(let j=0;j<n0;j++){const k=base+Math.min(n1-1,Math.round(j*n1/n0)), col=st.cols[a+j];
+      col.forEach((v,s)=>{if(v==null)return; if(cols[k][s]!=null){lost++;return} cols[k][s]=v});
+      if(pmSet.has(a+j)&&!pm.includes(k)) pm.push(k);
+      if(sel.c===a+j) selC=k}}
+  if(dry) return lost;
+  st.cols=cols; st.pm=pm; st.res=res2; st.trip=[...t2]; sel.c=selC; norm(st); render(); return lost}
+let tripArm=null;
+function toggleTrip(b){
+  stop(); relayout(); if(b==null) b=L.cb[sel.c]; const t=new Set(st.trip), on=!t.has(b); on?t.add(b):t.delete(b);
+  const lost=restructure(st.res,[...t],true);
+  if(lost&&tripArm!==b){tripArm=b;setTimeout(()=>{if(tripArm===b)tripArm=null},3000);flash(`셋잇단을 끄면 겹치는 음 ${lost}개가 빠집니다. 한 번 더 누르면 끕니다.`);return}
+  tripArm=null; const m=Math.floor(b/st.beats)+1, k=b%st.beats+1; restructure(st.res,[...t]);
+  flash(`${m}마디 ${k}박 셋잇단 ${on?'켬':'끔'}${lost?` · 음 ${lost}개 빠짐`:''}`)}
 const ALH=window.ALH||'';
 const ETUDES=window.ETUDES||{};
 function presetEtude(k){const p=ETUDES[k],per=p.res*p.beats,cols=[];for(let i=0;i<p.bars*per;i++)cols.push(EMPTY());p.data.split(' ').forEach(t=>{const m=/^(\d+)([a-f])(\d+|x)$/.exec(t);if(m)cols[+m[1]]['abcdef'.indexOf(m[2])]=m[3]==='x'?'x':+m[3]});return {title:p.title,note:p.note,cols,bpm:p.bpm,capo:p.capo||0,res:p.res,beats:p.beats,pm:(p.pm||[]).slice()}}
@@ -274,16 +315,19 @@ const $=id=>document.getElementById(id);
 const sheet=$('sheet');
 
 function render(){
-  sheet.classList.toggle('dense',PER>8); updHint();
+  relayout(); const mCount=L.nm; let maxN=0; for(let m=0;m<mCount;m++) maxN=Math.max(maxN,L.ms[m+1]-L.ms[m]);
+  sheet.classList.toggle('dense',maxN>8); updHint();
   let h='<div class="legend">'+NAMES.map(n=>`<span>${n}</span>`).join('')+'</div>';
-  const mCount=st.cols.length/PER;
   for(let m=0;m<mCount;m++){
-    h+=`<div class="m"><div class="mn">${m+1}</div><div class="mk" style="grid-template-columns:repeat(${PER},var(--cw))">`;
-    for(let k=0;k<PER;k++){const c=m*PER+k;h+=`<span data-mk="${c}"${st.pm.includes(c)?' class="pm"':''}>${st.pm.includes(c)?'PM':''}</span>`}
-    h+=`</div><div class="g" style="grid-template-columns:repeat(${PER},var(--cw))">`;
-    for(let s=0;s<6;s++)for(let k=0;k<PER;k++){
-      const c=m*PER+k, v=st.cols[c][s];
-      h+=`<div class="c${k&&k%st.res===0?' b0':st.res===6&&k%3===0?' t3':''}${c===sel.c&&s===sel.s?' sel':''}" data-c="${c}" data-s="${s}">${cellHtml(v)}</div>`;
+    const a=L.ms[m], N=L.ms[m+1]-a, gc=`grid-template-columns:repeat(${N},var(--cw))`;
+    h+=`<div class="m"><div class="mn">${m+1}</div><div class="tp" style="${gc}">`;
+    for(let b=m*st.beats;b<(m+1)*st.beats;b++){const on=L.tr.has(b);h+=`<span data-tb="${b}" style="grid-column:span ${L.bs[b+1]-L.bs[b]}"${on?' class="on"':''} title="${m+1}마디 ${b%st.beats+1}박 셋잇단 ${on?'끄기':'켜기'}"></span>`}
+    h+=`</div><div class="mk" style="${gc}">`;
+    for(let c=a;c<a+N;c++){h+=`<span data-mk="${c}"${st.pm.includes(c)?' class="pm"':''}>${st.pm.includes(c)?'PM':''}</span>`}
+    h+=`</div><div class="g" style="${gc}">`;
+    for(let s=0;s<6;s++)for(let c=a;c<a+N;c++){
+      const v=st.cols[c][s], j=L.cp[c];
+      h+=`<div class="c${c>a&&j===0?' b0':j%3===0&&j&&L.cn[c]>st.res?' t3':''}${c===sel.c&&s===sel.s?' sel':''}" data-c="${c}" data-s="${s}">${cellHtml(v)}</div>`;
     }
     h+='</div></div>';
   }
@@ -304,7 +348,8 @@ function select(c,s){
 }
 function updatePos(){
   const v=st.cols[sel.c]?.[sel.s];
-  $('pos').textContent=`${Math.floor(sel.c/PER)+1}마디 ${sel.c%PER+1}칸 · ${NAMES[sel.s]}줄${v==='x'?' · 뮤트음(M.)':v!=null?' · '+v+'프렛':''}${st.pm.includes(sel.c)?' · P.M.':''}`;
+  if(!L||L.ct.length!==st.cols.length) relayout();
+  $('pos').textContent=`${cellPos(sel.c)}${L.cn[sel.c]>st.res?' (셋잇단)':''} · ${NAMES[sel.s]}줄${v==='x'?' · 뮤트음(M.)':v!=null?' · '+v+'프렛':''}${st.pm.includes(sel.c)?' · P.M.':''}`;
 }
 function save(){lsSet(LS_CUR,st)}
 
@@ -319,8 +364,9 @@ function setFret(v,fromKey){
   if(v!==null){audition(s,v); last={c,s,v,t:now}} else last={t:0};
   if(v!==null && opts.adv){ if(c===st.cols.length-1) addMeasure(); select(c+1,s) } else updatePos();
 }
-function addMeasure(){for(let i=0;i<PER;i++)st.cols.push([null,null,null,null,null,null]);render()}
-function rmMeasure(){if(st.cols.length<=PER)return;st.cols.splice(-PER);st.pm=st.pm.filter(c=>c<st.cols.length);if(sel.c>=st.cols.length)sel.c=st.cols.length-1;render()}
+function addMeasure(){pushMeasure();render()}
+function rmMeasure(){relayout();if(L.nm<=1)return;cutMeasures(L.nm-1);render()}
+function cutMeasures(n){st.cols.splice(L.ms[n]);st.trip=st.trip.filter(b=>b<n*st.beats);st.pm=st.pm.filter(c=>c<st.cols.length);if(sel.c>=st.cols.length)sel.c=st.cols.length-1}
 
 /* ---------- 소리: Karplus-Strong 현 진동 합성 ---------- */
 let ctx,master; const cache={};
@@ -388,7 +434,7 @@ function strumOff(c,s){
   const col=st.cols[c]; if(!col) return 0; const idx=[];
   for(let i=5;i>=0;i--) if(col[i]!=null) idx.push(i);
   if(idx.length<3) return 0;
-  const up=(c%st.res)!==0 && col[4]==null && col[5]==null;
+  const up=L.cp[c]!==0 && col[4]==null && col[5]==null;
   const order=up?idx.slice().reverse():idx;
   return order.indexOf(s)*(up?0.008:0.011);
 }
@@ -397,23 +443,23 @@ let raf=null, playing=null;
 function play(from){
   stop(); ac();
   if(GTR_SAMPLES[opts.tone]&&!toneBufs[opts.tone]){flash('기타 소리를 불러오는 중…');loadTone(opts.tone).then(()=>play(from));return}
-  const step=60/st.bpm/st.res, t0=ctx.currentTime+0.08;
+  relayout(); const spb=60/st.bpm, t0=ctx.currentTime+0.08, b0=L.ct[from], at=c=>t0+(L.ct[c]-b0)*spb;
   let lastCol=-1;
   for(let c=from;c<st.cols.length;c++) if(st.cols[c].some(v=>v!=null)) lastCol=c;
   if(lastCol<0){flash('재생할 음이 없습니다. 칸에 프렛 번호를 넣어 주세요.');return}
   const pmSet=new Set(st.pm);
   for(let s=0;s<6;s++){
     const evs=[]; for(let c=from;c<=lastCol;c++){const v=st.cols[c][s]; if(v!=null) evs.push([c,v])}
-    evs.forEach((e,i)=>{const t=t0+(e[0]-from)*step+strumOff(e[0],s); const nx=evs[i+1]; playCell(s,e[1],t,nx?t0+(nx[0]-from)*step+strumOff(nx[0],s):null,pmSet.has(e[0]))});
+    evs.forEach((e,i)=>{const t=at(e[0])+strumOff(e[0],s); const nx=evs[i+1]; playCell(s,e[1],t,nx?at(nx[0])+strumOff(nx[0],s):null,pmSet.has(e[0]))});
   }
-  const endCol=lastCol+2;
-  playing={from,t0,step,endCol,cur:-1};
+  const endBeat=L.ct[lastCol]+2/L.cn[lastCol];
+  playing={from,t0,spb,b0,endBeat,cur:-1};
   const tick=()=>{
     if(!playing)return;
-    const c=playing.from+Math.floor((ctx.currentTime-playing.t0)/playing.step);
+    const x=playing.b0+(ctx.currentTime-playing.t0)/playing.spb, c=x<playing.b0?-1:x>=playing.endBeat?Infinity:colAtBeat(x);
     if(c!==playing.cur){hl(playing.cur,false); if(c>=playing.from && c<st.cols.length) hl(c,true); playing.cur=c;
       const el=cell(c,0); if(el&&c>=playing.from) el.scrollIntoView({block:'nearest',inline:'nearest'});}
-    if(c>=playing.endCol){ const f=playing.from; if(opts.loop){play(f);return} stop(); return }
+    if(x>=playing.endBeat){ const f=playing.from; if(opts.loop){play(f);return} stop(); return }
     raf=requestAnimationFrame(tick);
   };
   raf=requestAnimationFrame(tick);
@@ -428,17 +474,18 @@ function flash(t){$('pos').textContent=t; setTimeout(updatePos,2500)}
 
 /* ---------- 텍스트 TAB ---------- */
 function toText(){
-  const lines=[]; const mCount=st.cols.length/PER;
+  relayout(); const lines=[]; const mCount=L.nm;
   if(st.title) lines.push(st.title, `BPM ${st.bpm}`+(+st.capo?` · 카포 ${st.capo}`:''), '');
-  if(st.res===6) lines.push('(16분음표 셋잇단: 한 박 = 6칸)', '');
   for(let start=0;start<mCount;start+=4){
     const end=Math.min(start+4,mCount); let any=false, pl='  ';
-    for(let m=start;m<end;m++){for(let k=0;k<PER;k++){const on=st.pm.includes(m*PER+k);any=any||on;pl+=on?'PM ':'   '}pl+=' '}
+    let tl='  ', anyT=false;
+    for(let m=start;m<end;m++){for(let c=L.ms[m];c<L.ms[m+1];c++){const on=st.pm.includes(c);any=any||on;pl+=on?'PM ':'   ';const t=L.cn[c]>st.res;anyT=anyT||t;tl+=!t?'   ':L.cp[c]===0?'3~~':'~~~'}pl+=' ';tl+=' '}
+    if(anyT) lines.push(tl);
     if(any) lines.push(pl);
     for(let s=0;s<6;s++){
       let l=NAMES[s]+'|';
       for(let m=start;m<Math.min(start+4,mCount);m++){
-        for(let k=0;k<PER;k++){const v=st.cols[m*PER+k][s]; const t=v==null?'':v==='x'?'M.':String(v); l+='-'+t+'-'.repeat(2-t.length)}
+        for(let c=L.ms[m];c<L.ms[m+1];c++){const v=st.cols[c][s]; const t=v==null?'':v==='x'?'M.':String(v); l+='-'+t+'-'.repeat(2-t.length)}
         l+='|';
       }
       lines.push(l);
@@ -474,7 +521,7 @@ function fillSongs(){
 let delArm=false;
 
 /* ---------- UI 연결 ---------- */
-function updHint(){const r={2:'8분음표',4:'16분음표',6:'16분음표 셋잇단(한 박에 3+3칸, 점선이 셋잇단 묶음)',8:'32분음표'}[st.res];$('gridHint').textContent=`한 칸 = ${r}, 한 마디 = ${st.beats}/4박자 ${PER}칸. 빈 칸은 소리가 이어집니다. 칸을 누르고 프렛 번호를 입력하세요. 0은 개방현, M.은 뮤트음, 칸 위 PM은 팜뮤트입니다.`;const nl=$('noteLine');nl.textContent=st.note||'';nl.hidden=!st.note}
+function updHint(){const r={2:'8분음표',4:'16분음표',8:'32분음표'}[st.res], t={2:'8분음표 셋잇단 3칸',4:'16분음표 셋잇단 6칸',8:'32분음표 셋잇단 12칸'}[st.res];$('gridHint').textContent=`한 칸 = ${r}, 한 마디 = ${st.beats}/4박자 ${PER}칸. 셋잇단: 박 위 빈 줄을 누르거나, 칸을 고르고 ③ 셋잇단(키보드 T)을 누르면 그 박이 ${t}이 됩니다. 빈 칸은 소리가 이어집니다. 칸을 누르고 프렛 번호를 입력하세요. 0은 개방현, M.은 뮤트음, 칸 위 PM은 팜뮤트입니다.`;const nl=$('noteLine');nl.textContent=st.note||'';nl.hidden=!st.note}
 function syncControls(){
   $('tone').value=opts.tone;
   $('beats').value=st.beats; $('res').value=st.res;
@@ -486,9 +533,10 @@ $('pad').innerHTML=Array.from({length:16},(_,i)=>`<button data-f="${i}" aria-lab
   `<button class="fn" data-k="left" aria-label="이전 칸">◀</button><button class="fn" data-k="right" aria-label="다음 칸">▶</button>`+
   `<button class="fn" data-k="up" aria-label="위 줄">▲</button><button class="fn" data-k="down" aria-label="아래 줄">▼</button>`+
   `<button class="fn" data-k="col" style="grid-column:span 2">이 칸 듣기</button><button class="fn" data-k="del" style="grid-column:span 2">지우기</button>`+
-  `<button class="fn" data-k="x" style="grid-column:span 4" aria-label="뮤트음 넣기">M. 뮤트음</button><button class="fn" data-k="pm" style="grid-column:span 4" aria-label="이 칸 팜뮤트 켜고 끄기">P.M. 팜뮤트 (이 칸)</button>`;
+  `<button class="fn" data-k="x" style="grid-column:span 3" aria-label="뮤트음 넣기">M. 뮤트음</button><button class="fn" data-k="pm" style="grid-column:span 3" aria-label="이 칸 팜뮤트 켜고 끄기">P.M. 팜뮤트</button><button class="fn" data-k="trip" style="grid-column:span 2" aria-label="선택한 칸이 있는 박 셋잇단 켜고 끄기">③ 셋잇단</button>`;
 
-sheet.addEventListener('click',e=>{const el=e.target.closest('.c');if(!el)return;
+sheet.addEventListener('click',e=>{const tb=e.target.closest('[data-tb]');if(tb){toggleTrip(+tb.dataset.tb);return}
+  const el=e.target.closest('.c');if(!el)return;
   const c=+el.dataset.c,s=+el.dataset.s; select(c,s); const v=st.cols[c][s]; if(v!=null) audition(s,v)});
 $('pad').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.f!=null) setFret(+b.dataset.f,false);
@@ -499,12 +547,14 @@ $('pad').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   if(k==='col'){ac();const pmc=st.pm.includes(sel.c);st.cols[sel.c].forEach((v,s)=>{if(v!=null)playCell(s,v,ctx.currentTime+0.005+(5-s)*0.012,ctx.currentTime+1.4,pmc)})}
   if(k==='x')setFret('x');
   if(k==='pm')togglePM();
+  if(k==='trip')toggleTrip();
 });
 document.addEventListener('keydown',e=>{
   const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select')return;
   if(/^[0-9]$/.test(e.key)){setFret(+e.key,true);e.preventDefault()}
   else if(/^[xXmM]$/.test(e.key)){setFret('x');e.preventDefault()}
   else if(e.key==='p'||e.key==='P'){togglePM();e.preventDefault()}
+  else if(e.key==='t'||e.key==='T'){toggleTrip();e.preventDefault()}
   else if(e.key==='Backspace'||e.key==='Delete'){setFret(null);e.preventDefault()}
   else if(e.key==='ArrowLeft'){select(sel.c-1,sel.s);e.preventDefault()}
   else if(e.key==='ArrowRight'){select(sel.c+1,sel.s);e.preventDefault()}
@@ -514,7 +564,10 @@ document.addEventListener('keydown',e=>{
 });
 $('title').addEventListener('input',e=>{st.title=e.target.value;save()});
 $('beats').addEventListener('change',e=>{stop();st.beats=+e.target.value;norm(st);render()});
-$('res').addEventListener('change',e=>{stop();st.res=+e.target.value;norm(st);render()});
+let resArm=null;
+$('res').addEventListener('change',e=>{stop();const r=+e.target.value,lost=restructure(r,st.trip,true);
+  if(lost&&resArm!==r){resArm=r;e.target.value=st.res;flash(`${{2:'8분음표',4:'16분음표',8:'32분음표'}[r]}로 바꾸면 겹치는 음 ${lost}개가 빠집니다. 한 번 더 고르면 바꿉니다.`);return}
+  resArm=null;restructure(r,st.trip)});
 $('bpm').addEventListener('input',e=>{st.bpm=+e.target.value;$('bpmV').value=st.bpm;save()});
 $('bpmV').addEventListener('change',e=>{let v=Math.round(+e.target.value);if(!v){e.target.value=st.bpm;return}v=Math.max(30,Math.min(300,v));st.bpm=v;e.target.value=v;$('bpm').value=v;save()});
 $('bpmV').addEventListener('keydown',e=>{if(e.key==='Enter')e.target.blur()});
@@ -523,13 +576,13 @@ $('tone').addEventListener('change',e=>{opts.tone=e.target.value;lsSet('tabnote.
 $('loop').addEventListener('change',e=>{opts.loop=e.target.checked;lsSet('tabnote.opts',opts)});
 $('adv').addEventListener('change',e=>{opts.adv=e.target.checked;lsSet('tabnote.opts',opts)});
 $('addM').onclick=addMeasure; $('rmM').onclick=rmMeasure;
-function applyMeasures(n){stop();const cur=st.cols.length/PER;
-  if(n>cur){for(let i=0;i<(n-cur)*PER;i++)st.cols.push(EMPTY())}
-  else if(n<cur){st.cols.splice(n*PER);st.pm=st.pm.filter(c=>c<st.cols.length);if(sel.c>=st.cols.length)sel.c=st.cols.length-1}
+function applyMeasures(n){stop();relayout();const cur=L.nm;
+  if(n>cur){for(let i=cur;i<n;i++)pushMeasure()}
+  else if(n<cur){cutMeasures(n)}
   $('mConfirm').hidden=true; render(); flash(`전체 ${n}마디로 맞췄습니다.`)}
-function setMeasures(){const el=$('mCount'),cur=st.cols.length/PER;let n=Math.round(+el.value);
+function setMeasures(){relayout();const el=$('mCount'),cur=L.nm;let n=Math.round(+el.value);
   if(!n||n<1){el.value=cur;return} n=Math.min(500,n); el.value=n; if(n===cur){$('mConfirm').hidden=true;return}
-  const lost=n<cur?st.cols.slice(n*PER).reduce((a,col)=>a+col.filter(v=>v!=null).length,0):0;
+  const lost=n<cur?st.cols.slice(L.ms[n]).reduce((a,col)=>a+col.filter(v=>v!=null).length,0):0;
   if(lost){const box=$('mConfirm');box.hidden=false;
     box.innerHTML=`${n+1}~${cur}마디의 음 ${lost}개가 지워집니다. <button class="btn" id="mYes">줄이기</button><button class="btn" id="mNo">취소</button>`;
     $('mYes').onclick=()=>applyMeasures(n); $('mNo').onclick=()=>{box.hidden=true;el.value=cur}; return}
@@ -553,7 +606,7 @@ $('copyBtn').onclick=()=>{const t=toText(); $('out').value=t;
   catch(e){$('out').select();$('copyMsg').textContent='선택해 두었습니다. 복사 단축키로 복사하세요.'}};
 $('impBtn').onclick=()=>{const cols=fromText($('inp').value);
   if(!cols){$('impMsg').textContent='6줄(e B G D A E)로 된 TAB을 찾지 못했습니다. 각 줄이 e| B| 처럼 시작하는지 확인하세요.';return}
-  stop(); st=norm({title:st.title||'가져온 악보',cols,bpm:st.bpm,capo:st.capo}); sel={c:0,s:0}; syncControls(); render(); $('impMsg').textContent=`${cols.length/PER}마디를 가져왔습니다.`};
+  stop(); st=norm({title:st.title||'가져온 악보',cols,bpm:st.bpm,capo:st.capo}); sel={c:0,s:0}; syncControls(); render(); relayout(); $('impMsg').textContent=`${L.nm}마디를 가져왔습니다.`};
 
 /* ---------- 녹음 분석: 스펙트럼 변화로 음 시작점 찾기 + 동시음(최대 3개) 음높이 추정 ---------- */
 const NOTE=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -712,15 +765,18 @@ $('recPlay').onclick=()=>{stop();ac();const use=found.filter(e=>e.on);if(!use.le
   const t0=ctx.currentTime+0.08,b=use[0].t; use.forEach((e,i)=>{const nx=use[i+1];playEvent(e,t0+e.t-b,nx?t0+nx.t-b:null)})};
 $('recInsert').onclick=()=>{
   const use=found.filter(e=>e.on&&e.alts.length); if(!use.length){recMsg('넣을 음이 없습니다.');return}
-  stop(); const mode=$('recMode').value, step=60/st.bpm/st.res; let prev=-1; const start=sel.c;
+  stop(); relayout(); const mode=$('recMode').value, spb=60/st.bpm; let prev=-1; const start=sel.c, b0=L.ct[start];
   use.forEach((e,i)=>{
-    let off=mode==='time'?Math.round((e.t-use[0].t)/step):i*(+mode);
-    if(off<=prev) off=prev+1; prev=off;
-    const c=start+off; while(c>=st.cols.length) for(let k=0;k<PER;k++) st.cols.push([null,null,null,null,null,null]);
+    let c;
+    if(mode==='time'){const x=b0+(e.t-use[0].t)/spb; while(x>=L.nb-1e-9){pushMeasure();relayout()}
+      c=colAtBeat(x); if(c+1<L.ct.length&&L.ct[c+1]-x<x-L.ct[c]) c++}
+    else c=start+i*(+mode);
+    if(c<=prev) c=prev+1; prev=c;
+    while(c>=st.cols.length){pushMeasure();relayout()}
     e.alts[e.k].forEach(p=>{st.cols[c][p.s]=p.f});
   });
   render(); select(start,use[0].alts[use[0].k][0].s);
-  recMsg(`${use.length}번 친 소리를 ${Math.floor(start/PER)+1}마디 ${start%PER+1}칸부터 넣었습니다. ▶ 선택한 칸부터 눌러 확인해 보세요.`);
+  recMsg(`${use.length}번 친 소리를 ${cellPos(start)}부터 넣었습니다. ▶ 선택한 칸부터 눌러 확인해 보세요.`);
   $('recOut').hidden=true;
 };
 $('recClear').onclick=()=>{$('recOut').hidden=true;recMsg('')};
@@ -760,14 +816,14 @@ function loadLame(){if(window.lamejs)return Promise.resolve();return new Promise
 async function renderSong(){
   ac(); await loadTone(opts.tone); let last=-1; for(let c=0;c<st.cols.length;c++) if(st.cols[c].some(v=>v!=null)) last=c;
   if(last<0) throw new Error('empty');
-  const sr=44100, step=60/st.bpm/st.res, dur=(last+1)*step+2.8;
+  relayout(); const sr=44100, spb=60/st.bpm, dur=(L.ct[last]+1/L.cn[last])*spb+2.8;
   const oc=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,Math.ceil(dur*sr),sr);
   const comp=oc.createDynamicsCompressor(), lp=oc.createBiquadFilter(), out=oc.createGain();
   lp.type='lowpass'; lp.frequency.value=5200; out.gain.value=0.8; out.connect(lp); lp.connect(comp); comp.connect(oc.destination);
   const tgt={c:oc,out}, pmSet=new Set(st.pm), t0=0.05;
   for(let s=0;s<6;s++){
     const evs=[]; for(let c=0;c<=last;c++){const v=st.cols[c][s]; if(v!=null) evs.push([c,v])}
-    evs.forEach((e,i)=>{const t=t0+e[0]*step+strumOff(e[0],s), nx=evs[i+1]; playCell(s,e[1],t,nx?t0+nx[0]*step+strumOff(nx[0],s):null,pmSet.has(e[0]),tgt)});
+    evs.forEach((e,i)=>{const t=t0+L.ct[e[0]]*spb+strumOff(e[0],s), nx=evs[i+1]; playCell(s,e[1],t,nx?t0+L.ct[nx[0]]*spb+strumOff(nx[0],s):null,pmSet.has(e[0]),tgt)});
   }
   const buf=await oc.startRendering(); return {pcm:buf.getChannelData(0), sr};
 }
