@@ -1,0 +1,17 @@
+{
+  "name": "탭노트 - 기타 TAB 작곡장",
+  "short_name": "탭노트",
+  "description": "기타 TAB을 적고 기타 소리로 재생하며, 연주 녹음에서 음을 찾아 주는 작곡 앱",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F3F5F1",
+  "theme_color": "#2F55A0",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
