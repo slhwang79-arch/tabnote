@@ -44,6 +44,16 @@ python3 -m http.server 8000   # http://localhost:8000
 Netlify에서 이 저장소를 연결하면 저장소가 바뀔 때마다 자동 배포됩니다.
 (Netlify → Add new site → Import an existing project → GitHub → 이 저장소 선택. 빌드 명령 없음, 공개 폴더는 저장소 최상위)
 
+## Claude 아티팩트로 올리기
+
+Claude 안에서 쓰는 사본(https://claude.ai/artifact/GgRGKDE66ejFTjJd8ER1Ra)은 아래 명령으로 만듭니다.
+
+```bash
+python3 build-artifact.py   # 결과: dist/artifact/ (git에는 올리지 않음)
+```
+
+`dist/artifact/tabnote.html`을 페이지로, `guitar-samples.js`·`songs.js`·`lame.min.js`를 함께 올리는 파일로 게시합니다. 아티팩트 사본은 앱 설치 버튼·아이폰 설치 안내·서비스 워커를 빼고, 마이크를 바로 쓸 수 없을 때 녹음 앱이나 파일 고르기를 안내합니다. `index.html`이 바뀌어 바꿀 부분을 찾지 못하면 스크립트가 멈추고 어느 부분인지 알려 줍니다.
+
 ## 라이선스와 출처
 
 - 기타 샘플: FluidR3 GM 사운드폰트 (Frank Wen), CC BY 3.0 — gleitz/midi-js-soundfonts 변환본을 잘라 다시 인코딩
