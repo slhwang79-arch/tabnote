@@ -13,6 +13,8 @@
 | `lame.min.js` | MP3 인코더 (lamejs 1.2.1, LGPL-3.0, 원본 그대로) |
 | `sw.js` | 오프라인 캐시 (서비스 워커). 파일을 바꾸면 `CACHE` 버전 숫자를 올릴 것 |
 | `manifest.webmanifest`, `icon-*.png` | 앱 설치 정보와 아이콘 |
+| `netlify.toml` | Netlify 배포 설정 (공개할 파일 목록, 캐시 설정) |
+| `build-artifact.py` | Claude 아티팩트용 사본 만들기 (아래 참고) |
 
 빌드 과정은 없습니다. 아무 정적 웹 서버로 폴더를 열면 됩니다.
 
@@ -41,8 +43,10 @@ python3 -m http.server 8000   # http://localhost:8000
 
 ## 배포
 
-Netlify에서 이 저장소를 연결하면 저장소가 바뀔 때마다 자동 배포됩니다.
-(Netlify → Add new site → Import an existing project → GitHub → 이 저장소 선택. 빌드 명령 없음, 공개 폴더는 저장소 최상위)
+Netlify에서 이 저장소를 연결하면 main이 바뀔 때마다 자동 배포됩니다.
+(Netlify → Add new site → Import an existing project → GitHub → 이 저장소 선택. 빌드 설정은 `netlify.toml`이 정하므로 화면에서는 비워 두면 됨)
+
+`netlify.toml`은 앱에 필요한 파일만 `public/`으로 모아 그 폴더만 공개합니다. 앱 파일을 새로 추가하면 `netlify.toml`의 복사 목록과 `sw.js`의 `CORE` 목록에 함께 넣어야 합니다.
 
 ## Claude 아티팩트로 올리기
 

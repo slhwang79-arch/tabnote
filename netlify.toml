@@ -1,0 +1,33 @@
+# 탭노트 Netlify 배포 설정
+# 이 파일이 있으면 Netlify 화면의 빌드 설정보다 이 내용이 우선합니다.
+#
+# 앱에 필요한 파일만 public/ 폴더로 모아 그 폴더만 공개합니다.
+# (README.md, build-artifact.py, netlify.toml 같은 파일은 사이트에 올라가지 않음)
+# 앱 파일을 새로 추가하면 아래 cp 목록과 sw.js의 CORE 목록에 함께 넣으세요.
+# 목록의 파일이 없으면 빌드가 실패하므로, 빠진 파일이 있는 채로 배포되지는 않습니다.
+
+[build]
+  publish = "public"
+  command = """
+    rm -rf public && mkdir public && \
+    cp index.html sw.js manifest.webmanifest \
+       guitar-samples.js songs.js lame.min.js \
+       icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png \
+       public/
+  """
+
+# 서비스 워커와 첫 화면은 항상 새로 확인해서, 앱을 고치면 바로 새 버전을 받게 함
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
