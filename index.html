@@ -55,6 +55,7 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:6px;
 .mn{font-family:var(--f-num);font-size:.7rem;color:var(--muted);height:18px;padding-left:4px}
 .g{position:relative;display:grid;grid-template-columns:repeat(8,var(--cw));grid-auto-rows:var(--rh)}
 .c.b0{box-shadow:inset 1px 0 0 var(--soft)}
+.c.t3{background-image:linear-gradient(to bottom,transparent calc(50% - .5px),var(--line) calc(50% - .5px),var(--line) calc(50% + .5px),transparent calc(50% + .5px)),repeating-linear-gradient(to bottom,var(--soft) 0 2px,transparent 2px 4px);background-size:100% 100%,1px 100%;background-repeat:no-repeat}
 .mk{display:grid;height:14px}
 .mk span{font:700 9px/14px var(--f-num);color:var(--accent);text-align:center;letter-spacing:.02em;border-bottom:1.5px dashed transparent}
 .mk span.pm{border-bottom-color:var(--accent)}
@@ -130,7 +131,7 @@ textarea{width:100%;min-height:150px;font-family:var(--f-num);font-size:.8rem;ba
     <label>빠르기 <input type="range" id="bpm" min="40" max="240" step="1"> <input type="number" class="bpm-in" id="bpmV" min="30" max="300" step="1" inputmode="numeric" aria-label="BPM 직접 입력"> BPM</label>
     <label>카포 <select id="capo"></select></label>
     <label>박자 <select id="beats"><option value="2">2/4</option><option value="3">3/4</option><option value="4">4/4</option></select></label>
-    <label>한 칸 <select id="res"><option value="2">8분음표</option><option value="4">16분음표</option><option value="8">32분음표</option></select></label>
+    <label>한 칸 <select id="res"><option value="2">8분음표</option><option value="4">16분음표</option><option value="6">16분음표 셋잇단</option><option value="8">32분음표</option></select></label>
     <label>음색 <select id="tone"><option value="steel">통기타 (스틸 줄)</option><option value="nylon">클래식 기타 (나일론 줄)</option><option value="synth">합성음 (이전 소리)</option></select></label>
     <label><input type="checkbox" id="loop"> 반복 재생</label>
     <label><input type="checkbox" id="adv"> 입력 후 다음 칸으로</label>
@@ -282,7 +283,7 @@ function render(){
     h+=`</div><div class="g" style="grid-template-columns:repeat(${PER},var(--cw))">`;
     for(let s=0;s<6;s++)for(let k=0;k<PER;k++){
       const c=m*PER+k, v=st.cols[c][s];
-      h+=`<div class="c${k&&k%st.res===0?' b0':''}${c===sel.c&&s===sel.s?' sel':''}" data-c="${c}" data-s="${s}">${cellHtml(v)}</div>`;
+      h+=`<div class="c${k&&k%st.res===0?' b0':st.res===6&&k%3===0?' t3':''}${c===sel.c&&s===sel.s?' sel':''}" data-c="${c}" data-s="${s}">${cellHtml(v)}</div>`;
     }
     h+='</div></div>';
   }
@@ -429,6 +430,7 @@ function flash(t){$('pos').textContent=t; setTimeout(updatePos,2500)}
 function toText(){
   const lines=[]; const mCount=st.cols.length/PER;
   if(st.title) lines.push(st.title, `BPM ${st.bpm}`+(+st.capo?` · 카포 ${st.capo}`:''), '');
+  if(st.res===6) lines.push('(16분음표 셋잇단: 한 박 = 6칸)', '');
   for(let start=0;start<mCount;start+=4){
     const end=Math.min(start+4,mCount); let any=false, pl='  ';
     for(let m=start;m<end;m++){for(let k=0;k<PER;k++){const on=st.pm.includes(m*PER+k);any=any||on;pl+=on?'PM ':'   '}pl+=' '}
@@ -472,7 +474,7 @@ function fillSongs(){
 let delArm=false;
 
 /* ---------- UI 연결 ---------- */
-function updHint(){const r={2:'8분음표',4:'16분음표',8:'32분음표'}[st.res];$('gridHint').textContent=`한 칸 = ${r}, 한 마디 = ${st.beats}/4박자 ${PER}칸. 빈 칸은 소리가 이어집니다. 칸을 누르고 프렛 번호를 입력하세요. 0은 개방현, M.은 뮤트음, 칸 위 PM은 팜뮤트입니다.`;const nl=$('noteLine');nl.textContent=st.note||'';nl.hidden=!st.note}
+function updHint(){const r={2:'8분음표',4:'16분음표',6:'16분음표 셋잇단(한 박에 3+3칸, 점선이 셋잇단 묶음)',8:'32분음표'}[st.res];$('gridHint').textContent=`한 칸 = ${r}, 한 마디 = ${st.beats}/4박자 ${PER}칸. 빈 칸은 소리가 이어집니다. 칸을 누르고 프렛 번호를 입력하세요. 0은 개방현, M.은 뮤트음, 칸 위 PM은 팜뮤트입니다.`;const nl=$('noteLine');nl.textContent=st.note||'';nl.hidden=!st.note}
 function syncControls(){
   $('tone').value=opts.tone;
   $('beats').value=st.beats; $('res').value=st.res;
